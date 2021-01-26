@@ -7,6 +7,7 @@ import shutil
 import time
 import warnings
 from PIL import Image
+import shutil
 
 import torch
 import torch.nn as nn
@@ -20,7 +21,7 @@ import torch.utils.data.distributed
 import torchvision.transforms as transforms
 import torchvision.datasets as datasets
 import torchvision.models as models
-from torchvision.utils import save_image
+from torchvision.utils import save_image, make_grid
 
 model_names = sorted(name for name in models.__dict__
     if name.islower() and not name.startswith("__")
@@ -287,7 +288,7 @@ def main_worker(gpu, ngpus_per_node, args):
         test_loader = torch.utils.data.DataLoader(
             datasets.ImageFolder(testdir, transforms.Compose([
                 transforms.Resize(256),
-            transforms.CenterCrop(224),
+            transforms.CenterCrop(225),
             transforms.ToTensor(),
                 normalize,
             ])),
@@ -441,16 +442,25 @@ def test(test_loader, model, names, classes):
         
     correct = 0
     total = 0
-    
+    idx = 0
     
     with torch.no_grad():
         for i, (images, target) in enumerate(test_loader):
-            idx = 0
+            
             
             if args.gpu is not None:
                 images = images.cuda(args.gpu, non_blocking=True)
             target = target.cuda(args.gpu, non_blocking=True)
-
+            
+            # samples = test_loader.dataset.samples
+            # sample_fname, _ = test_loader.dataset.samples[i]
+            # sample_fname2, _ = test_loader.dataset.samples[i+1]
+            
+            # print(samples)
+            # print(f' {i}: {sample_fname}')
+            # print(f'{i}+1: {sample_fname2}')
+            # print(f'idx: {idx}')
+            
             # compute output
             output = model(images)
             # print(output)
@@ -460,10 +470,10 @@ def test(test_loader, model, names, classes):
             
             total += target.size(0)
             correct += (predicted == target).sum().item()
-            print(f"total: {total}" )
-            print(f"correct: {correct}" )
+            # print(f"total: {total}" )
+            # print(f"correct: {correct}" )
             test_acc = 100 * correct / total
-            print(f"test_acc: {test_acc}" )
+            # print(f"test_acc: {test_acc}" )
             
             
             # # Reshape predicted
@@ -479,14 +489,33 @@ def test(test_loader, model, names, classes):
             # # lab = classes[numpy.asscalar(output)]
             
             for pred in predicted :
+                print(idx)
                 # print (f'pred:{pred}')
                 lab = classes[pred]
-                name = next(names)
-                print ("Images: " + name + ", Classified as: " + lab)
                 
-                save_image(images[idx], args.outf + "/" + lab + "/" + name)
+                # name = next(names)
+                # src = args.evalf + "/images/" + name
+                
+                
+                src, _ = test_loader.dataset.samples[idx]
+                name = os.path.basename(src)
+                dest = args.outf + "/" + lab + "/" + name
+                print ("idx:" + str(idx) + "Images: " + src + ", Classified as: " + lab)
+                
+                # inv_normalize = transforms.Normalize(
+                #     mean=[-0.485/0.229, -0.456/0.224, -0.406/0.255],
+                #     std=[1/0.229, 1/0.224, 1/0.255]
+                # )
+                # inv_tensor = inv_normalize(images[idx])
+    
+                shutil.copy(src, dest)
+                # save_image(inv_tensor, args.outf + "/" + lab + "/" + name)
                 
                 idx += 1
+        
+            
+            
+            print("---------------------------------------------------------")
                 
 
             
